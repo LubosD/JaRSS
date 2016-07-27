@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html ng-app="jarssApp">
+    <head>
+        <title>JaRSS</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        
+        <script type="text/javascript" src="data/angularjs/angular.min.js"></script>
+        <script type="text/javascript" src="data/angularjs/angular-cookies.min.js"></script>
+        <script type="text/javascript" src="data/ui-bootstrap/ui-bootstrap-2.0.0.min.js"></script>
+        <script type="text/javascript" src="data/ui-bootstrap/ui-bootstrap-tpls-2.0.0.min.js"></script>
+        <script type="text/javascript" src="data/angularjs/angular-messages.js"></script>
+        <link rel="stylesheet" type="text/css" href="data/bootstrap/css/bootstrap.min.css" />
+        <link rel="stylesheet" type="text/css" href="data/bootstrap/css/bootstrap-theme.min.css" />
+        <link rel="stylesheet" type="text/css" href="data/jarss/css/style.css" />
+        <link rel="stylesheet" type="text/css" href="data/angular-ui-tree/angular-ui-tree.min.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="data/jarss/img/favicon.ico" />
+        <script type="text/javascript" src="data/angular-ui-tree/angular-ui-tree.min.js"></script>
+        
+        <script type="text/javascript" src="data/split/split.min.js"></script>
+        <script type="text/javascript" src="data/contextMenu.js"></script>
+        
+        <script type="text/javascript" src="data/jarss/js/App.js"></script>
+        <script type="text/javascript" src="data/jarss/js/RootController.js"></script>
+        <script type="text/javascript" src="data/jarss/js/LoginController.js"></script>
+        <script type="text/javascript" src="data/jarss/js/MainController.js"></script>
+    </head>
+    <body ng-controller="RootController">
+        <div ng-if="!authenticated" ng-controller="LoginController">
+            <!-- Login screen -->
+            
+            <div class="container" id="login-container">
+                <div class="page-header">
+                  <img src="data/jarss/img/jarss.png" alt="JaRSS" id="big-logo" />
+                </div>
+                
+                <div uib-alert ng-repeat="alert in alerts" ng-class="'alert-' + (alert.type || 'warning')" close="closeAlert($index)">{{alert.msg}}</div>
+
+                <form class="form-signin" ng-submit="doLogin(loginform.$valid)" name="loginform">
+                    <h2 class="form-signin-heading">Please sign in</h2>
+                    <label for="inputLogin" class="sr-only">User</label>
+                    <input  id="inputLogin" class="form-control" placeholder="User" ng-model="login" required autofocus>
+                    <label for="inputPassword" class="sr-only">Password</label>
+                    <input type="password" id="inputPassword" class="form-control" placeholder="Password" ng-model="password" required>
+
+                    <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
+                  </form>
+            </div>
+        </div>
+        <div id="main-controller" ng-controller="MainController" ng-show="authenticated">
+            <!-- Main app -->
+            
+            <nav class="navbar navbar-default navbar-static-top">
+                <div class="container-fluid">
+                    <div class="navbar-header"><img src="data/jarss/img/jarss-small.png" alt="JaRSS" id="small-logo" /></div>
+                    <div id="navbar" class="navbar-collapse collapse">
+                        <ul class="nav navbar-nav navbar-right">
+                            <li uib-dropdown>
+                                <a href="#" uib-dropdown-toggle>Actions <b class="caret"></b></a>
+                                <ul uib-dropdown-menu>
+                                  <li><a href="#" ng-click="subscribe()">Subscribe</a></li>
+                                  <li><a href="#">Another action</a></li>
+                                  <li><a href="#">Something else here</a></li>
+                                  <li><a href="#" ng-click="logout()">Logout</a></li>
+                                </ul>
+                              </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+            
+            <script type="text/ng-template" id="nodes_renderer.html">
+  <div ui-tree-handle class="tree-node tree-node-content" ng-class="{ 'selected': selectedNode == node }" ng-click="selectNode(node)">
+    <a class="btn btn-success btn-xs" ng-if="node.nodes && node.nodes.length > 0" data-nodrag ng-click="toggle(this)"><span
+        class="glyphicon"
+        ng-class="{
+          'glyphicon-chevron-right': collapsed,
+          'glyphicon-chevron-down': !collapsed
+        }"></span></a>
+    <span ng-class="{'has-unread': node.unread > 0}">{{node.title}}</span>
+    <span ng-if="node.unread > 0" class="badge">{{node.unread}}</span>
+  </div>
+  <ol ui-tree-nodes="" ng-model="node.nodes" ng-class="{hidden: collapsed}">
+    <li ng-repeat="node in node.nodes" ui-tree-node ng-include="'nodes_renderer.html'">
+    </li>
+  </ol>
+</script>
+            
+            <div id="panes" class="split">
+                <div id="feeds-pane" class="split split-horizontal">
+                    <div ui-tree id="tree-root" data-drag-delay="1000">
+                        <ol ui-tree-nodes ng-model="data">
+                            <li ng-repeat="node in data" ui-tree-node ng-include="'nodes_renderer.html'"></li>
+                        </ol>
+                    </div>
+                </div>
+                <div id="right-pane" class="split split-horizontal">
+                    <div id="articles-pane" class="split">Articles pane</div>
+                    <div id="preview-pane" class="split">Preview pane</div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

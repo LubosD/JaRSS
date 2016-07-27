@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html ng-app="jarssApp">
+    <head>
+        <title>JaRSS &ndash; Initial Setup</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <script type="text/javascript" src="data/angularjs/angular.min.js"></script>
+        <script type="text/javascript" src="data/angularjs/angular-cookies.js"></script>
+        <script type="text/javascript" src="data/angularjs/angular-messages.js"></script>
+        <script type="text/javascript" src="data/ui-bootstrap/ui-bootstrap-2.0.0.min.js"></script>
+        <script type="text/javascript" src="data/ui-bootstrap/ui-bootstrap-tpls-2.0.0.min.js"></script>
+        <link rel="stylesheet" type="text/css" href="data/bootstrap/css/bootstrap.min.css" />
+        <link rel="stylesheet" type="text/css" href="data/bootstrap/css/bootstrap-theme.min.css" />
+        <link rel="shortcut icon" type="image/x-icon" href="data/jarss/img/favicon.ico" />
+        <script type="text/javascript" src="data/jarss/js/App.js"></script>
+        <script type="text/javascript" src="data/jarss/js/InitialSetupController.js"></script>
+        
+        <script type="text/ng-template" id="applying.html">
+            <div class="modal-body">
+                <img src="data/jarss/img/ajax-loader.gif" alt="" />
+                Applying...
+            </div>
+        </script>
+    </head>
+    <body ng-controller="InitialSetupController">
+        <div class="container">
+            <div class="page-header">
+              <img src="data/jarss/img/jarss.png" alt="JaRSS" id="big-logo" />
+            </div>
+            <p class="lead">Before we can get started, please enter database settings and first user's credentials.</p>
+            
+            <div uib-alert ng-repeat="alert in alerts" ng-class="'alert-' + (alert.type || 'warning')" close="closeAlert($index)">{{alert.msg}}</div>
+            
+            <form class="form-horizontal" role="form" name="setupform" ng-submit="configure(setupform.$valid)">
+                <h2>Database Settings</h2>
+                
+                <div class="form-group">
+                    <label for="dbtype" class="col-sm-3 control-label">Database type</label>
+                    <div class="col-sm-9">
+                        <select id="dbtype" class="form-control" ng-model='dbtype'>
+                            <option value='postgresql'>PostgreSQL</option>
+                            <option value='mysql'>MySQL</option>
+                        </select>
+                    </div>
+                </div> <!-- /.form-group -->
+                
+                <div class="form-group">
+                    <label for="dbhost" class="col-sm-3 control-label">Database Host</label>
+                    <div class="col-sm-9">
+                        <input type="text" id="dbhost" ng-model='dbhost' required pattern=".{2,}" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="dbname" class="col-sm-3 control-label">Database Name</label>
+                    <div class="col-sm-9">
+                        <input type="text" id="dbname" ng-model='dbname' required pattern=".{2,}" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="dbuser" class="col-sm-3 control-label">Database User</label>
+                    <div class="col-sm-9">
+                        <input type="text" id="dbuser" ng-model='dbuser' required pattern=".{2,}" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="dbpassword" class="col-sm-3 control-label">Database Password</label>
+                    <div class="col-sm-9">
+                        <input type="password" id="dbpassword" ng-model='dbpassword' class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-3"></div>
+                    <div class="col-sm-9">
+                        <div class="checkbox">
+                            <label uib-popover="Allows anybody to create a new user account" popover-trigger="'mouseenter'">
+                                <input type="checkbox" id="registrationAllowed" ng-model='registrationAllowed' value="true">Registration allowed
+                            </label>
+                        </div>
+                    </div>
+                </div> <!-- /.form-group -->
+                
+                <h2>First User</h2>
+                
+                <div class="form-group">
+                    <label for="user" class="col-sm-3 control-label">User</label>
+                    <div class="col-sm-9">
+                        <input type="text" id="user" ng-model='user' pattern="[a-zA-Z0-9]+" required class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="col-sm-3 control-label">Password</label>
+                    <div class="col-sm-9">
+                        <input type="password" id="password" ng-model='password' pattern=".{2,}" required class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password2" class="col-sm-3 control-label">Password again</label>
+                    <div class="col-sm-9">
+                        <input type="password" id="password2" ng-model='password2' wj-validation-error="password2 != password ? 'Passwords don\'t match' : ''" class="form-control" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="email" class="col-sm-3 control-label">E-mail</label>
+                    <div class="col-sm-9">
+                        <input type="email" id="email" ng-model='email' required class="form-control /">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div class="col-sm-9 col-sm-offset-3">
+                        <button type="submit" class="btn btn-primary btn-block" >Configure</button>
+                    </div>
+                </div>
+            </form> <!-- /form -->
+        </div>
+    </body>
+</html>
