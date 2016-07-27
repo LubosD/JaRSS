@@ -5,6 +5,7 @@ import java.security.Principal;
 
 import java.util.Collection;
 import javax.persistence.Basic;
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
@@ -48,11 +49,11 @@ public  class User implements Serializable, Principal {
     private String email;
 
 
-    @OneToMany(targetEntity=Tag.class)
+    @OneToMany(targetEntity=Tag.class, cascade = CascadeType.REMOVE)
     private Collection<Tag> tags;
 
 
-    @OneToMany(targetEntity=FeedCategory.class,mappedBy="user")
+    @OneToMany(targetEntity=FeedCategory.class,mappedBy="user",cascade = CascadeType.REMOVE)
     private Collection<FeedCategory> feedCategories;
 	
 	private String role;

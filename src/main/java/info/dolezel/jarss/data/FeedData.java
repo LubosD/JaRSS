@@ -5,21 +5,25 @@ import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.Collection;
 import javax.persistence.Basic;
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.Index;
 import javax.persistence.Lob;
 import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
+import javax.persistence.Table;
 
 @Entity
 @NamedQuery(name="FeedData.getByUrl",query="SELECT data FROM FeedData data where data.url = :url")
+@Table(indexes = { @Index(columnList = "url") })
 public  class FeedData implements Serializable {
 
 
-    @OneToMany(fetch=FetchType.LAZY,targetEntity=FeedItemData.class,mappedBy="feedData")
+    @OneToMany(fetch=FetchType.LAZY,targetEntity=FeedItemData.class,mappedBy="feedData",cascade = CascadeType.REMOVE)
     private Collection<FeedItemData> feedItemData;
 
 
@@ -43,8 +47,6 @@ public  class FeedData implements Serializable {
     @Basic
     private Timestamp lastFetch;
 
-
-    @Basic
     private String url;
 
 

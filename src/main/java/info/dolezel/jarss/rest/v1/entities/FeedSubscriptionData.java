@@ -21,5 +21,22 @@ package info.dolezel.jarss.rest.v1.entities;
  * @author lubos
  */
 public class FeedSubscriptionData {
-	
+	private int categoryId;
+	private String url;
+
+	public int getCategoryId() {
+		return categoryId;
+	}
+
+	public void setCategoryId(int categoryId) {
+		this.categoryId = categoryId;
+	}
+
+	public String getUrl() {
+		return url;
+	}
+
+	public void setUrl(String url) {
+		this.url = url;
+	}
 }

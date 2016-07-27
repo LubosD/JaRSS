@@ -56,6 +56,7 @@ public class HibernateUtil {
         conf.setProperty("hibernate.connection.pool_size", "10");
         conf.setProperty("hibernate.show_sql", "true");
 		conf.setProperty("hibernate.current_session_context_class", "org.hibernate.context.internal.ThreadLocalSessionContext");
+		conf.setProperty("hibernate.validator.autoregister_listeners", "false");
         
         //conf.configure();
         

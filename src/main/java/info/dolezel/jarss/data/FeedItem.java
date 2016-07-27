@@ -41,6 +41,10 @@ public  class FeedItem implements Serializable {
 
     @ManyToMany(targetEntity=Tag.class)
     private Collection<Tag> tags;
+	
+	@Column(nullable=false)
+    @Basic
+    private boolean exported;
 
     public FeedItem(){
 
@@ -110,6 +114,14 @@ public  class FeedItem implements Serializable {
   public void setTags (Collection<Tag> tags) {
         this.tags = tags;
     }
+
+	public boolean isExported() {
+		return exported;
+	}
+
+	public void setExported(boolean exported) {
+		this.exported = exported;
+	}
 
 }
 

@@ -32,8 +32,8 @@ public class InitialSetupService {
 	private static boolean configured;
     private static boolean registrationAllowed;
     private static String user, password, url;
-
-	static {
+	
+	public static void init() {
 		try {
 			loadConfiguration();
 			
@@ -43,6 +43,10 @@ public class InitialSetupService {
 			ex.printStackTrace();
 			Logger.getLogger(InitialSetupService.class.getName()).log(Level.SEVERE, null, ex);
 		}
+	}
+
+	public static boolean isConfigured() {
+		return configured;
 	}
 
 	private static void loadConfiguration() {

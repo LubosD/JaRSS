@@ -15,11 +15,20 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-jarssApp.controller('MainController', function ($scope, $http) {
+jarssApp.controller('MainController', function ($scope, $http, $uibModal) {
     $scope.logout = function() {
         $scope.$emit("logout");
     };
+	
+	$scope.loadFeedsTree = function() {
+		$http.get("api/v1/feeds/tree", $scope.httpConfig)
+		.then(function (response) {
+			$scope.data = response.data;
+		})
+		.catch(function (response) {
+			console.error("Cannot load feeds tree");
+		});
+	};
     
     $scope.$watch("authenticated", function() {
         if ($scope.authenticated) {
@@ -30,18 +39,25 @@ jarssApp.controller('MainController', function ($scope, $http) {
                 }
             };
             
-            $http.get("api/v1/feeds/tree", $scope.httpConfig)
-            .then(function (response) {
-                $scope.data = response.data;
-            })
-            .catch(function (response) {
-                console.error("Cannot load feeds tree");
-            });
+            $scope.loadFeedsTree();
         }
     });
     
     $scope.subscribe = function() {
-        
+        var modal = $uibModal.open({
+			animation: true,
+			templateUrl: 'data/jarss/tpl/subscribe.html',
+			controller: 'SubscribeController',
+			resolve: {
+				token: function() {
+					return $scope.token;
+				}
+			}
+		});
+		modal.result.then(function (addedNew) {
+			if (addedNew)
+				$scope.loadFeedsTree();
+		});
     };
     
     

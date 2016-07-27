@@ -21,17 +21,14 @@ import info.dolezel.jarss.data.Token;
 import info.dolezel.jarss.data.User;
 import java.io.IOException;
 import java.security.Principal;
-import java.util.Calendar;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.PreMatching;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.Provider;
-import org.hibernate.Criteria;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-import org.hibernate.criterion.Restrictions;
 
 /**
  *
@@ -52,23 +49,13 @@ public class AuthenticationFilter implements ContainerRequestFilter {
 		if (parts.length == 2 && "Bearer".equals(parts[0])) {
 			Session sess = HibernateUtil.getSessionFactory().getCurrentSession();
 			Transaction tx = sess.beginTransaction();
-			Criteria criteria;
 			Token token;
-			Calendar cal = Calendar.getInstance();
 			
-			criteria = sess.createCriteria(Token.class);
-			criteria.add(Restrictions.eq("value", parts[1]));
-			token = (Token) criteria.uniqueResult();
+			token = Token.loadToken(sess, parts[1]);
 			
 			if (token == null)
 				return; // Invalid token
-			if (token.getExpiry().before(cal.getTime()))
-				return; // Token expired, will be reaped later
 			
-			cal.add(Calendar.SECOND, Token.TOKEN_VALIDITY);
-			token.setExpiry(cal.getTime());
-			
-			sess.update(token);
 			tx.commit();
 			
 			setUser(requestContext, token.getUser());

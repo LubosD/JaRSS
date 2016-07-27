@@ -16,6 +16,7 @@
  */
 package info.dolezel.jarss.data;
 
+import java.util.Calendar;
 import java.util.Date;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -25,6 +26,8 @@ import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
+import javax.persistence.Transient;
+import org.hibernate.Session;
 
 /**
  *
@@ -79,5 +82,22 @@ public class Token {
 		this.value = value;
 	}
 	
-	
+	@Transient
+	public static Token loadToken(Session session, String value) {
+		Token token;
+		Calendar cal = Calendar.getInstance();
+		token = (Token) session.createQuery("from Token where value = :value").setString("value", value).uniqueResult();
+			
+		if (token == null)
+			return null; // Invalid token
+		if (token.getExpiry().before(cal.getTime()))
+			return null; // Token expired, will be reaped later
+
+		cal.add(Calendar.SECOND, Token.TOKEN_VALIDITY);
+		token.setExpiry(cal.getTime());
+
+		// Refresh token expiry
+		session.update(token);
+		return token;
+	}
 }

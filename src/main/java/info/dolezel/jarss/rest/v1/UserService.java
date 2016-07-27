@@ -92,14 +92,14 @@ public class UserService {
 		return Response.noContent().build();
 	}
 	
-	private static String randomString(int len) {
+	public static String randomString(int len) {
 		StringBuilder sb = new StringBuilder(len);
 		for (int i = 0; i < len; i++)
 			sb.append(AB.charAt(rnd.nextInt(AB.length())));
 		return sb.toString();
 	}
 	
-	private static String calculateHash(String password, String salt) throws NoSuchAlgorithmException {
+	public static String calculateHash(String password, String salt) throws NoSuchAlgorithmException {
 		MessageDigest crypt;
 		crypt = MessageDigest.getInstance("SHA-1");
 		crypt.update(password.getBytes());

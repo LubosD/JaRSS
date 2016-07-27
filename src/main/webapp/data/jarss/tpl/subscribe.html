@@ -1,0 +1,27 @@
+<div class="modal-header">
+	<h3 class="modal-title">Subscribe to a feed</h3>
+</div>
+<div class="modal-body">
+	<form class="form-horizontal" role="form" name="ssform" ng-submit="subscribe(ssform.$valid)">
+		<div class="form-group">
+			<label for="url" class="col-sm-3 control-label">Feed URL</label>
+			<div class="col-sm-9">
+				<input type="url" id="dbhost" ng-model='url' required class="form-control" />
+			</div>
+		</div>
+		<div class="form-group">
+			<label for="category" class="col-sm-3 control-label">Feed Category</label>
+			<div class="col-sm-9">
+				<select ng-model="category" id="category">
+					<option value="0">&ndash;&ndash;&ndash;</option>
+					<option ng-repeat="cat in categories" value="{{cat.id}}">{{cat.name}}</option>
+				</select>
+			</div>
+		</div>
+	</form>
+</div>
+<div class="modal-footer">
+	<button class="btn btn-primary" type="button" ng-click="ok()">Subscribe</button>
+	<button class="btn" type="button" ng-click="cancel()">Cancel</button>
+</div>
+

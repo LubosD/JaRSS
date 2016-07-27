@@ -1,21 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <web-app version="2.5" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd">
-    
+	<display-name>JaRSS</display-name>
+	
     <servlet>
-        <servlet-name>Jersey</servlet-name>
+        <servlet-name>jarss-api</servlet-name>
         <servlet-class>
             org.glassfish.jersey.servlet.ServletContainer
         </servlet-class>
         <init-param>
             <param-name>javax.ws.rs.Application</param-name>
-            <param-value>info.dolezel.jarss.rest.RestApplication</param-value>
+            <param-value>info.dolezel.jarss.rest.v1.RestApplication</param-value>
         </init-param>
-        <load-on-startup>1</load-on-startup>
     </servlet>
 
     <servlet-mapping>
-        <servlet-name>Jersey</servlet-name>
+        <servlet-name>jarss-api</servlet-name>
         <url-pattern>/api/v1/*</url-pattern>
     </servlet-mapping>
+	
+	<servlet>
+        <servlet-name>ttrss-api</servlet-name>
+        <servlet-class>
+            org.glassfish.jersey.servlet.ServletContainer
+        </servlet-class>
+        <init-param>
+            <param-name>jersey.config.server.provider.classnames</param-name>
+            <param-value>info.dolezel.jarss.rest.ttrss.TTRSSService</param-value>
+        </init-param>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>ttrss-api</servlet-name>
+        <url-pattern>/tt-rss/api/*</url-pattern>
+    </servlet-mapping>
+	
+	<listener>
+        <listener-class>info.dolezel.jarss.FeedsEngine</listener-class>
+    </listener>
    
 </web-app>
