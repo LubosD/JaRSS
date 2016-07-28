@@ -22,9 +22,7 @@ import info.dolezel.jarss.data.User;
 import info.dolezel.jarss.rest.v1.entities.ErrorDescription;
 import info.dolezel.jarss.rest.v1.entities.LoginData;
 import info.dolezel.jarss.rest.v1.entities.RegistrationData;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
+import info.dolezel.jarss.util.StringUtils;
 import java.util.Calendar;
 import javax.annotation.security.PermitAll;
 import javax.annotation.security.RolesAllowed;
@@ -34,7 +32,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-import javax.xml.bind.DatatypeConverter;
 import org.hibernate.Query;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
@@ -47,8 +44,6 @@ import org.hibernate.criterion.Projections;
 @Path("user")
 @RolesAllowed("user")
 public class UserService {
-	private static final String AB = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-	private static final SecureRandom rnd = new SecureRandom();
 	
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
@@ -78,12 +73,12 @@ public class UserService {
 		}
 		
 		User user = new User();
-		String salt = randomString(10);
+		String salt = StringUtils.randomString(10);
 		
 		user.setLogin(regData.getUser());
 		user.setEmail(regData.getEmail());
 		user.setSalt(salt.getBytes());
-		user.setPassword(calculateHash(regData.getPassword(), salt));
+		user.setPassword(StringUtils.calculateHash(regData.getPassword(), salt));
 		user.setRole(role);
 		
 		sess.save(user);
@@ -92,20 +87,6 @@ public class UserService {
 		return Response.noContent().build();
 	}
 	
-	public static String randomString(int len) {
-		StringBuilder sb = new StringBuilder(len);
-		for (int i = 0; i < len; i++)
-			sb.append(AB.charAt(rnd.nextInt(AB.length())));
-		return sb.toString();
-	}
-	
-	public static String calculateHash(String password, String salt) throws NoSuchAlgorithmException {
-		MessageDigest crypt;
-		crypt = MessageDigest.getInstance("SHA-1");
-		crypt.update(password.getBytes());
-		crypt.update(salt.getBytes());
-		return DatatypeConverter.printHexBinary(crypt.digest());
-	}
 	
 	@POST
 	@Consumes(MediaType.APPLICATION_JSON)
@@ -126,7 +107,7 @@ public class UserService {
 			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Authentication failed")).build();
 		}
 		
-		hash = calculateHash(loginData.getPassword(), new String(user.getSalt()));
+		hash = StringUtils.calculateHash(loginData.getPassword(), new String(user.getSalt()));
 		if (!hash.equals(user.getPassword())) {
 			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Authentication failed")).build();
 		}
@@ -138,7 +119,7 @@ public class UserService {
 		cal.add(Calendar.SECOND, Token.TOKEN_VALIDITY);
 		token.setExpiry(cal.getTime());
 		token.setUser(user);
-		token.setValue(randomString(8));
+		token.setValue(StringUtils.randomString(8));
 		
 		sess.save(token);
 		tx.commit();

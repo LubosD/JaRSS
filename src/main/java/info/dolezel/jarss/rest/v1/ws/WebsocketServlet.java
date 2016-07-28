@@ -1,5 +1,5 @@
-/* 
- * Copyright (C) 2016 Lubos Dolezel
+/*
+ * Copyright (C) 2016 lubos
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,14 +14,20 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package info.dolezel.jarss.rest.v1.ws;
 
-var jarssApp = angular.module('jarssApp', ['ui.tree', 'ui.bootstrap', 'ngCookies', 'ui.bootstrap.contextMenu']);
+import org.eclipse.jetty.websocket.servlet.WebSocketServlet;
+import org.eclipse.jetty.websocket.servlet.WebSocketServletFactory;
 
-jarssApp.directive('autofocus', function () {
-  return {
-    restrict: 'A',
-    link: function (scope, element) {
-      element[0].focus();
-    }
-  };
-});
+/**
+ *
+ * @author lubos
+ */
+public class WebsocketServlet extends WebSocketServlet {
+
+	@Override
+	public void configure(WebSocketServletFactory wssf) {
+		wssf.register(UnreadNotificationEndpoint.class);
+	}
+	
+}

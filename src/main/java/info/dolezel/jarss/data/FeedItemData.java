@@ -4,18 +4,23 @@ import java.io.Serializable;
 
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import javax.persistence.Basic;
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
-import javax.persistence.Lob;
+import javax.persistence.Index;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.Table;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 @Entity
+@Table(indexes = { @Index(columnList = "date") })
 public  class FeedItemData implements Serializable {
 
 
@@ -44,7 +49,7 @@ public  class FeedItemData implements Serializable {
     private int id;
 
 
-    @Lob
+    @Column(columnDefinition="TEXT")
     @Basic
     private String text;
 
@@ -55,10 +60,17 @@ public  class FeedItemData implements Serializable {
 
     @OneToMany(targetEntity=FeedItem.class,mappedBy="data")
     private Collection<FeedItem> feedItems;
+	
+	@OneToMany(cascade = CascadeType.REMOVE, mappedBy="feedItem", targetEntity=FeedItemEnclosure.class)
+	private Collection<FeedItemEnclosure> enclosures;
 
     public FeedItemData(){
 
     }
+
+	public FeedItemData(int id) {
+		this.id = id;
+	}
 
 
    public Date getDate() {
@@ -157,6 +169,10 @@ public  class FeedItemData implements Serializable {
   public void setFeedItems (Collection<FeedItem> feedItems) {
         this.feedItems = feedItems;
     }
+
+	public Collection<FeedItemEnclosure> getEnclosures() {
+		return enclosures;
+	}
 
 }
 

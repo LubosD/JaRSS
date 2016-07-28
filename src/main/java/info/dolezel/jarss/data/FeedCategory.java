@@ -10,6 +10,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.OrderBy;
 
 @Entity
 public  class FeedCategory implements Serializable {
@@ -19,7 +20,8 @@ public  class FeedCategory implements Serializable {
     private String name;
 
 
-    @OneToMany(targetEntity=Feed.class,mappedBy="feedCategory")
+    @OneToMany(targetEntity=Feed.class, mappedBy="feedCategory")
+	@OrderBy("name ASC")
     private Collection<Feed> feeds;
 
 

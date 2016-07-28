@@ -1,5 +1,5 @@
-/* 
- * Copyright (C) 2016 Lubos Dolezel
+/*
+ * Copyright (C) 2016 lubos
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,14 +14,36 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+package info.dolezel.jarss.rest.v1.entities;
 
-var jarssApp = angular.module('jarssApp', ['ui.tree', 'ui.bootstrap', 'ngCookies', 'ui.bootstrap.contextMenu']);
+/**
+ *
+ * @author lubos
+ */
+public class ArticleUpdateData {
+	private Boolean read, starred, published;
 
-jarssApp.directive('autofocus', function () {
-  return {
-    restrict: 'A',
-    link: function (scope, element) {
-      element[0].focus();
-    }
-  };
-});
+	public Boolean getRead() {
+		return read;
+	}
+
+	public void setRead(Boolean read) {
+		this.read = read;
+	}
+
+	public Boolean getStarred() {
+		return starred;
+	}
+
+	public void setStarred(Boolean starred) {
+		this.starred = starred;
+	}
+
+	public Boolean getPublished() {
+		return published;
+	}
+
+	public void setPublished(Boolean published) {
+		this.published = published;
+	}
+}

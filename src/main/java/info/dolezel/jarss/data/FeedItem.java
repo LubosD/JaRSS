@@ -31,7 +31,7 @@ public  class FeedItem implements Serializable {
 
     @Column(nullable=false)
     @Basic
-    private boolean isRead;
+    private boolean read;
 
 
     @Id
@@ -84,13 +84,13 @@ public  class FeedItem implements Serializable {
 
 
 
-    public boolean isIsRead() {
-        return this.isRead;
+    public boolean isRead() {
+        return this.read;
     }
 
 
-  public void setIsRead (boolean isRead) {
-        this.isRead = isRead;
+  public void setRead (boolean isRead) {
+        this.read = isRead;
     }
 
 

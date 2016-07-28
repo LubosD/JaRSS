@@ -2,8 +2,8 @@ package info.dolezel.jarss.data;
 
 import java.io.Serializable;
 
-import java.sql.Timestamp;
 import java.util.Collection;
+import java.util.Date;
 import javax.persistence.Basic;
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -12,6 +12,8 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
 @Entity
 public  class Feed implements Serializable {
@@ -35,8 +37,8 @@ public  class Feed implements Serializable {
     private int id;
 
 
-    @Basic
-    private Timestamp readAllBefore;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date readAllBefore;
 
 
     @ManyToOne(targetEntity=User.class)
@@ -95,12 +97,12 @@ public  class Feed implements Serializable {
 
 
 
-   public Timestamp getReadAllBefore() {
+   public Date getReadAllBefore() {
         return this.readAllBefore;
     }
 
 
-  public void setReadAllBefore (Timestamp readAllBefore) {
+  public void setReadAllBefore (Date readAllBefore) {
         this.readAllBefore = readAllBefore;
     }
 

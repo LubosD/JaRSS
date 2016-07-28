@@ -10,6 +10,7 @@ import info.dolezel.jarss.data.FeedCategory;
 import info.dolezel.jarss.data.FeedData;
 import info.dolezel.jarss.data.FeedItem;
 import info.dolezel.jarss.data.FeedItemData;
+import info.dolezel.jarss.data.FeedItemEnclosure;
 import info.dolezel.jarss.data.Tag;
 import info.dolezel.jarss.data.Token;
 import info.dolezel.jarss.data.User;
@@ -43,7 +44,8 @@ public class HibernateUtil {
                 .addAnnotatedClass(Tag.class)
                 .addAnnotatedClass(FeedData.class)
 				.addAnnotatedClass(Token.class)
-                .addAnnotatedClass(FeedItemData.class);
+                .addAnnotatedClass(FeedItemData.class)
+				.addAnnotatedClass(FeedItemEnclosure.class);
         
         // <!-- Database connection settings -->
         conf.setProperty("hibernate.connection.url", url);
@@ -56,7 +58,6 @@ public class HibernateUtil {
         conf.setProperty("hibernate.connection.pool_size", "10");
         conf.setProperty("hibernate.show_sql", "true");
 		conf.setProperty("hibernate.current_session_context_class", "org.hibernate.context.internal.ThreadLocalSessionContext");
-		conf.setProperty("hibernate.validator.autoregister_listeners", "false");
         
         //conf.configure();
         
@@ -71,6 +72,10 @@ public class HibernateUtil {
     public static SessionFactory getSessionFactory() {
         return sessionFactory;
     }
+	
+	public static void shutdown() {
+		sessionFactory.close();
+	}
 
     public static String getDriverClass() {
         return driverClass;

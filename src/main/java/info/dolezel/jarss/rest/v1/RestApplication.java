@@ -22,5 +22,6 @@ public class RestApplication extends ResourceConfig {
 		register(FeedsService.class);
 		register(AuthenticationFilter.class);
 		register(FeedCategoryService.class);
+		register(ArticleService.class);
 	}
 }

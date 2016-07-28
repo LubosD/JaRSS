@@ -163,5 +163,21 @@ public  class User implements Serializable, Principal {
 		return getLogin();
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (!(o instanceof User))
+			return false;
+		
+		User that = (User) o;
+		return that.id == this.id;
+	}
+
+	@Override
+	public int hashCode() {
+		int hash = 7;
+		hash = 89 * hash + this.id;
+		return hash;
+	}
+
 }
 

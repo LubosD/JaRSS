@@ -2,8 +2,8 @@ package info.dolezel.jarss.data;
 
 import java.io.Serializable;
 
-import java.sql.Timestamp;
 import java.util.Collection;
+import java.util.Date;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
@@ -16,6 +16,8 @@ import javax.persistence.Lob;
 import javax.persistence.NamedQuery;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
+import javax.persistence.Temporal;
+import javax.persistence.TemporalType;
 
 @Entity
 @NamedQuery(name="FeedData.getByUrl",query="SELECT data FROM FeedData data where data.url = :url")
@@ -44,11 +46,15 @@ public  class FeedData implements Serializable {
     private String title;
 
 
-    @Basic
-    private Timestamp lastFetch;
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date lastFetch;
 
+	/** URL to the feed */
     private String url;
-
+	
+	// These values come from the feed itself
+	private String websiteUrl;
+	private String description;
 
     @Lob
     @Basic(fetch=FetchType.LAZY)
@@ -114,12 +120,12 @@ public  class FeedData implements Serializable {
 
 
 
-   public Timestamp getLastFetch() {
+   public Date getLastFetch() {
         return this.lastFetch;
     }
 
 
-  public void setLastFetch (Timestamp lastFetch) {
+  public void setLastFetch (Date lastFetch) {
         this.lastFetch = lastFetch;
     }
 
@@ -144,6 +150,22 @@ public  class FeedData implements Serializable {
   public void setIconData (byte[] iconData) {
         this.iconData = iconData;
     }
+
+	public String getWebsiteUrl() {
+		return websiteUrl;
+	}
+
+	public void setWebsiteUrl(String websiteUrl) {
+		this.websiteUrl = websiteUrl;
+	}
+
+	public String getDescription() {
+		return description;
+	}
+
+	public void setDescription(String description) {
+		this.description = description;
+	}
 
 }
 

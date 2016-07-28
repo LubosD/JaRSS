@@ -9,6 +9,7 @@ import info.dolezel.jarss.HibernateUtil;
 import info.dolezel.jarss.data.Token;
 import info.dolezel.jarss.data.User;
 import info.dolezel.jarss.rest.v1.UserService;
+import info.dolezel.jarss.util.StringUtils;
 import java.io.IOException;
 import java.util.Calendar;
 import javax.json.Json;
@@ -29,18 +30,20 @@ import org.hibernate.Transaction;
 
 /**
  * Based on https://tt-rss.org/gitlab/fox/tt-rss/wikis/ApiReference and testing.
+ *
  * @author lubos
  */
 @Path("/")
 public class TTRSSService {
+
 	private static final int API_LEVEL = 0;
 	private static final String VERSION = "1.5.0";
 	private static final JsonReaderFactory factory = Json.createReaderFactory(null);
-	
+
 	private Token token;
 	private User user;
 	private Session session;
-	
+
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
 	public Response handler(@Context ContainerRequest request) throws IOException {
@@ -49,31 +52,34 @@ public class TTRSSService {
 		int seq = 0;
 		int status = 0;
 		Transaction tx = null;
-		
+
 		jsonReader = factory.createReader(request.getEntityStream());
 		json = jsonReader.readObject();
-		
+
 		try {
 			String op, sid;
-			
+
 			session = HibernateUtil.getSessionFactory().getCurrentSession();
 			tx = session.beginTransaction();
-			
+
 			seq = json.getInt("seq");
 			op = json.getString("op");
 			sid = json.getString("sid");
-			
-			if (op == null)
+
+			if (op == null) {
 				throw new Exception("UNKNOWN_METHOD");
-			
+			}
+
 			if ("login".equals(op)) {
 				response = login(json);
 			} else {
-			
-				if (sid != null)
+
+				if (sid != null) {
 					token = Token.loadToken(session, sid);
-				if (token == null)
+				}
+				if (token == null) {
 					throw new Exception("NOT_LOGGED_IN");
+				}
 
 				switch (op) {
 					case "isLoggedIn":
@@ -122,18 +128,19 @@ public class TTRSSService {
 						throw new Exception("UNKNOWN_METHOD");
 				}
 			}
-			
+
 			tx.commit();
 		} catch (Exception e) {
 			e.printStackTrace();
-			
-			if (tx != null)
+
+			if (tx != null) {
 				tx.rollback();
-			
+			}
+
 			response = Json.createObjectBuilder().add("error", e.getMessage()).build();
 			status = 1;
 		}
-		
+
 		JsonObject msg = Json.createObjectBuilder().add("seq", seq).add("status", status)
 				.add("content", response).build();
 		return Response.ok(msg.toString()).build();
@@ -141,34 +148,36 @@ public class TTRSSService {
 
 	private JsonObject login(JsonObject json) throws Exception {
 		String login, password;
-		
+
 		login = json.getString("user");
 		password = json.getString("password");
-		
+
 		Query query = session.getNamedQuery("User.getByLogin");
 		String hash;
-		
+
 		query.setString("login", login);
 		user = (User) query.uniqueResult();
-		
-		if (user == null)
+
+		if (user == null) {
 			throw new Exception("LOGIN_ERROR");
-		
-		hash = UserService.calculateHash(password, new String(user.getSalt()));
-		if (!hash.equals(user.getPassword()))
+		}
+
+		hash = StringUtils.calculateHash(password, new String(user.getSalt()));
+		if (!hash.equals(user.getPassword())) {
 			throw new Exception("LOGIN_ERROR");
-		
+		}
+
 		// Auth ok, issue a token
 		Calendar cal = Calendar.getInstance();
 		token = new Token();
-		
+
 		cal.add(Calendar.SECOND, Token.TOKEN_VALIDITY);
 		token.setExpiry(cal.getTime());
 		token.setUser(user);
-		token.setValue(UserService.randomString(8));
-		
+		token.setValue(StringUtils.randomString(8));
+
 		session.save(token);
-		
+
 		return Json.createObjectBuilder()
 				.add("session_id", token.getValue())
 				.add("api_level", API_LEVEL).build();

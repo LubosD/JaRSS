@@ -19,6 +19,7 @@
         
         <script type="text/javascript" src="data/split/split.min.js"></script>
         <script type="text/javascript" src="data/contextMenu.js"></script>
+        <script type="text/javascript" src="data/moment-with-locales.min.js"></script>
         
         <script type="text/javascript" src="data/jarss/js/App.js"></script>
         <script type="text/javascript" src="data/jarss/js/RootController.js"></script>
@@ -53,18 +54,26 @@
             
             <nav class="navbar navbar-default navbar-static-top">
                 <div class="container-fluid">
-                    <div class="navbar-header"><img src="data/jarss/img/jarss-small.png" alt="JaRSS" id="small-logo" /></div>
+                    <div class="navbar-header">
+                        <img src="data/jarss/img/jarss-small.png" alt="JaRSS" id="small-logo" />
+                        
+                        <a id="feed-title" ng-if="selectedNode != null && !selectedNode.isCategory" ng-href="{{selectedNodeDetails.website}}">{{selectedNodeDetails.title}}</a>
+                        <div ng-if="selectedNode != null && !selectedNode.isCategory" id="feed-description">{{selectedNodeDetails.description}}</div>
+
+                    </div>
                     <div id="navbar" class="navbar-collapse collapse">
                         <ul class="nav navbar-nav navbar-right">
+                            <li ng-show="selectedNode != null">
+                                <a href="#">Mark all as read</a>
+                            </li>
                             <li uib-dropdown>
                                 <a href="#" uib-dropdown-toggle>Actions <b class="caret"></b></a>
                                 <ul uib-dropdown-menu>
-                                  <li><a href="#" ng-click="subscribe()">Subscribe</a></li>
-                                  <li><a href="#">Another action</a></li>
-                                  <li><a href="#">Something else here</a></li>
+                                  <li><a href="#" ng-click="subscribe()">Subscribe&hellip;</a></li>
+                                  <li><a href="#" ng-click="preferences()">Preferences&hellip;</a></li>
                                   <li><a href="#" ng-click="logout()">Logout</a></li>
                                 </ul>
-                              </li>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -78,6 +87,7 @@
           'glyphicon-chevron-right': collapsed,
           'glyphicon-chevron-down': !collapsed
         }"></span></a>
+     <img class="feed-image" width="16" height="16" alt="" src="api/v1/feeds/{{node.id}}/icon?token={{token}}" ng-if="!node.isCategory" />
     <span ng-class="{'has-unread': node.unread > 0}">{{node.title}}</span>
     <span ng-if="node.unread > 0" class="badge">{{node.unread}}</span>
   </div>
@@ -96,8 +106,34 @@
                     </div>
                 </div>
                 <div id="right-pane" class="split split-horizontal">
-                    <div id="articles-pane" class="split">Articles pane</div>
-                    <div id="preview-pane" class="split">Preview pane</div>
+                    
+                    <div id="articles-pane" class="split">
+                        
+                        <div class="headline" ng-repeat="headline in headlines" ng-class="{'unread': !headline.read}">
+                            <div class="headline-content" ng-click="showArticle($event, headline)">
+                                <img src="data/jarss/img/star.png" class="star-toggle" ng-class="{'starred': headline.starred}" ng-click="toggleStar($event, headline)" alt="" />
+                                <a ng-href="{{headline.link}}" class="headline-title">{{headline.title}}</a>
+                                <span class="headline-separator">//</span>
+                                <div class="headline-excerpt">{{headline.excerpt}}&hellip;</div>
+                                <span class="headline-published" title="{{headline.published | date:'medium'}}">{{formatDate(headline.published)}}</span>
+                            </div>
+                            <div class="article-preview" ng-if="headline.id == selectedHeadlineId">
+                                <div class="article-header">
+                                    <a ng-href="{{headline.link}}" ng-click="openArticle($event, headline.link)">{{headline.title}}</a>
+                                    <div class="author" ng-show="headline.article.author">from {{headline.article.author}}</div>
+                                </div>
+                                <div class="article-content" id="content-{{headline.id}}" ng-show="!headline.article.loading" ng-bind-html="headline.article.description"></div>
+                                <div class="article-loading" ng-show="headline.article.loading"><img src="data/jarss/img/rss-loader.gif" alt="Loading..." /></div>
+                                <div class="article-footer">
+                                    <img src="data/jarss/img/star.png" class="star-toggle" ng-class="{'starred': headline.starred}" ng-click="toggleStar($event, headline)" alt="" />
+                                    <input type="checkbox" ng-model="headline.read" ng-click="applyIsRead(headline)" id="read-{{headline.id}}" /><label for="read-{{headline.id}}">Mark as read</label>
+                                </div>
+                            </div>
+                        </div>
+                            <div ng-if="!headlines" class="headline-none">No articles to see!</div>
+                        
+                    </div>
+                    <!--<div id="preview-pane" class="split">Preview pane</div>-->
                 </div>
             </div>
         </div>
