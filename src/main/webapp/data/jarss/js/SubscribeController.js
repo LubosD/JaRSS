@@ -16,38 +16,63 @@
  */
 
 jarssApp.controller('SubscribeController', function ($scope, $http, $uibModalInstance, token) {
-	$scope.token = token;
-	$scope.category = '0';
-	$scope.url = '';
-	
-	httpConfig = {
-		headers: {
-			'Authorization': 'Bearer ' + $scope.token
-		}
-	};
-	
-	$http.get('api/v1/categories', httpConfig)
-	.then(function(response) {
-		$scope.categories = response.data;
-	});
-	
+    $scope.token = token;
+    $scope.category = '0';
+    $scope.url = '';
+    $scope.categoryName = '';
+
+    httpConfig = {
+        headers: {
+            'Authorization': 'Bearer ' + $scope.token
+        }
+    };
+
+    $http.get('api/v1/categories', httpConfig)
+    .then(function (response) {
+        $scope.categories = response.data;
+    });
+
+    $scope.subscribe = function() {
+        var data = {
+                categoryId: $scope.category,
+                url: $scope.url
+        };
+
+        $http.post('api/v1/feeds', data, httpConfig)
+        .then(function(response) {
+                $uibModalInstance.close(true);
+        })
+        .catch(function(response) {
+                if (response.data && response.data.error)
+                        window.alert(response.data.error);
+                else
+                        window.alert("Failed to subscribe, request failed");
+        });
+    }
+
     $scope.ok = function () {
-		var data = {
-			categoryId: $scope.category,
-			url: $scope.url
-		};
-		
-		$http.post('api/v1/feeds', data, httpConfig)
-		.then(function(response) {
-			$uibModalInstance.close(true);
-		})
-		.catch(function(response) {
-			if (response.data.error)
-				alert(response.data.error);
-			else
-				alert("Failed to subscribe, request failed");
-		});
-        
+        if ($scope.category != -1) {
+            $scope.subscribe();
+        } else {
+            // Create a new category first
+            var data = { 'name': $scope.categoryName };
+            
+            $http.post("api/v1/categories", data, httpConfig)
+            .then(function(response) {
+                var newIdLoc = response.headers('Location');
+                var pos = newIdLoc.lastIndexOf('/');
+                
+                $scope.category = parseInt(newIdLoc.substring(pos+1));
+                $scope.categories.push({ id: $scope.category, name: $scope.categoryName });
+                $scope.subscribe();
+            })
+            .catch(function(response) {
+                if (response.data.error)
+                        window.alert(response.data.error);
+                else
+                        window.alert("Failed to create a new category, request failed");
+            });
+        }
     };
 
     $scope.cancel = function () {

@@ -77,9 +77,15 @@ jarssApp.controller('MainController', function ($scope, $http, $uibModal, $sce) 
     // Feed or feed category selection
     $scope.selectNode = function(node) {
         $scope.selectedNode = node;
+        $scope.selectedHeadlineId = -1;
         
         if (node !== null) {
-            $http.get("api/v1/feeds/" + node.id + "/headlines?limit=50", $scope.httpConfig)
+            var where = node.isCategory ? 'categories' : 'feeds';
+            
+            $scope.selectedNodeDetails = {};
+            $scope.headlines = { loading: true };
+            
+            $http.get("api/v1/" + where + "/" + node.id + "/headlines?limit=50", $scope.httpConfig)
             .then(function(response) {
                 $scope.headlines = response.data;
             })
@@ -201,6 +207,19 @@ jarssApp.controller('MainController', function ($scope, $http, $uibModal, $sce) 
         event.preventDefault();
         window.open(link, '_blank');
     }
+    
+    $scope.treeOptions = {
+        accept: function(sourceNodeScope, destNodesScope, destIndex) {
+            return true;
+        },
+        dropped: function(event) {
+            
+        },
+    };
+    
+    $scope.markAllAsRead = function() {
+        
+    };
 });
 
     

@@ -5,76 +5,56 @@
  */
 package info.dolezel.jarss;
 
-import info.dolezel.jarss.data.Feed;
-import info.dolezel.jarss.data.FeedCategory;
-import info.dolezel.jarss.data.FeedData;
-import info.dolezel.jarss.data.FeedItem;
-import info.dolezel.jarss.data.FeedItemData;
-import info.dolezel.jarss.data.FeedItemEnclosure;
-import info.dolezel.jarss.data.Tag;
-import info.dolezel.jarss.data.Token;
-import info.dolezel.jarss.data.User;
+import java.util.HashMap;
+import java.util.Map;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
 import org.hibernate.HibernateException;
 import org.hibernate.SessionFactory;
-import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
-import org.hibernate.cfg.Configuration;
-import org.hibernate.service.ServiceRegistry;
 
 /**
- * Hibernate Utility class with a convenient method to get Session Factory
- * object.
+ * Hibernate Utility class with a convenient method to get the SessionFactory / EntityManagerFactory
+ * objects.
  *
  * @author lubos
  */
 public class HibernateUtil {
 
     private static SessionFactory sessionFactory;
+	private static EntityManagerFactory emFactory;
     private static String driverClass, dialect, url, username, password;
 
     public static void setupDatabaseConnection() throws HibernateException {
-        // Create the SessionFactory from standard (hibernate.cfg.xml)
-        // config file.
+		Map<String, Object> conf = new HashMap<>();
+		conf.put("hibernate.connection.url", url);
+        conf.put("hibernate.connection.username", username);
+        conf.put("hibernate.connection.password", password);
+        conf.put("hibernate.connection.driver_class", driverClass);
+        conf.put("hibernate.dialect", dialect);
         
-        Configuration conf = new Configuration();
-        
-        conf.addAnnotatedClass(Feed.class)
-                .addAnnotatedClass(FeedCategory.class)
-                .addAnnotatedClass(FeedItem.class)
-                .addAnnotatedClass(User.class)
-                .addAnnotatedClass(Tag.class)
-                .addAnnotatedClass(FeedData.class)
-				.addAnnotatedClass(Token.class)
-                .addAnnotatedClass(FeedItemData.class)
-				.addAnnotatedClass(FeedItemEnclosure.class);
-        
-        // <!-- Database connection settings -->
-        conf.setProperty("hibernate.connection.url", url);
-        conf.setProperty("hibernate.connection.username", username);
-        conf.setProperty("hibernate.connection.password", password);
-        conf.setProperty("hibernate.connection.driver_class", driverClass);
-        conf.setProperty("hibernate.dialect", dialect);
-        
-        conf.setProperty("hibernate.hbm2ddl.auto", "update");
-        conf.setProperty("hibernate.connection.pool_size", "10");
-        conf.setProperty("hibernate.show_sql", "true");
-		conf.setProperty("hibernate.current_session_context_class", "org.hibernate.context.internal.ThreadLocalSessionContext");
-        
-        //conf.configure();
-        
-        ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
-                .applySettings(conf.getProperties())
-                .build();
-        
-        sessionFactory = conf.buildSessionFactory(serviceRegistry);
-		System.out.println("Session factory: " + sessionFactory);
+        conf.put("hibernate.hbm2ddl.auto", "update");
+        conf.put("hibernate.connection.pool_size", "10");
+        conf.put("hibernate.show_sql", "true");
+		conf.put("hibernate.current_session_context_class", "org.hibernate.context.internal.ThreadLocalSessionContext");
+		
+		emFactory = Persistence.createEntityManagerFactory("hibernate", conf);
+		sessionFactory = emFactory.unwrap(SessionFactory.class);
     }
     
     public static SessionFactory getSessionFactory() {
         return sessionFactory;
     }
 	
+	public static EntityManager getEntityManager() {
+		return emFactory.createEntityManager();
+	}
+	
 	public static void shutdown() {
-		sessionFactory.close();
+		if (emFactory != null) {
+			emFactory.close();
+			emFactory = null;
+		}
 	}
 
     public static String getDriverClass() {

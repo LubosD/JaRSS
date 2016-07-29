@@ -19,7 +19,6 @@ import info.dolezel.jarss.rest.v1.InitialSetupService;
 import info.dolezel.jarss.rest.v1.RestApplication;
 import java.io.IOException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executors;
@@ -47,20 +46,14 @@ public class FeedsEngine implements ServletContextListener {
 		
 		InitialSetupService.init();
 		
-		executor.scheduleAtFixedRate(new Runnable() {
-			@Override
-			public void run() {
-				if (InitialSetupService.isConfigured())
-					cleanupTokens();
-			}
+		executor.scheduleAtFixedRate(() -> {
+			if (InitialSetupService.isConfigured())
+				cleanupTokens();
 		}, 1, 1, TimeUnit.HOURS);
 		
-		executor.scheduleAtFixedRate(new Runnable() {
-			@Override
-			public void run() {
-				if (InitialSetupService.isConfigured())
-					refreshFeeds();
-			}
+		executor.scheduleAtFixedRate(() -> {
+			if (InitialSetupService.isConfigured())
+				refreshFeeds();
 		}, 1, 15, TimeUnit.MINUTES);
 	}
 
@@ -114,26 +107,22 @@ public class FeedsEngine implements ServletContextListener {
 	}
 	
 	public void submitFeedRefresh(final FeedData fd) {
-		executor.schedule(new Runnable() {
-
-			@Override
-			public void run() {
-				Transaction tx = null;
+		executor.schedule(() -> {
+			Transaction tx = null;
+			
+			try {
+				Session session = HibernateUtil.getSessionFactory().getCurrentSession();
 				
-				try {
-					Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-					
-					tx = session.beginTransaction();
-					
-					refreshFeed(session, fd);
-					
-					tx.commit();
-				} catch (Exception e) {
-					if (tx != null)
-						tx.rollback();
-					
-					Logger.getLogger(RestApplication.class.getName()).log(Level.SEVERE, "Error refreshing feed " + fd.getId(), e);
-				}
+				tx = session.beginTransaction();
+				
+				refreshFeed(session, fd);
+				
+				tx.commit();
+			} catch (Exception e) {
+				if (tx != null)
+					tx.rollback();
+				
+				Logger.getLogger(RestApplication.class.getName()).log(Level.SEVERE, "Error refreshing feed " + fd.getId(), e);
 			}
 		}, 0, TimeUnit.SECONDS);
 	}
@@ -141,7 +130,7 @@ public class FeedsEngine implements ServletContextListener {
 	private void refreshFeed(Session sess, FeedData fd) {
 		try {
             SyndFeedInput input = new SyndFeedInput();
-            SyndFeed feed = input.build(new XmlReader(new URL(fd.getUrl())));
+            SyndFeed feed = input.build(new XmlReader(new URL(fd.getUrl()))); // TODO: handle redirects!
 			
 			updateFeedDetails(fd, feed);
             

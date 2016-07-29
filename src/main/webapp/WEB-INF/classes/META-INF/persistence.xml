@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence xmlns="http://java.sun.com/xml/ns/persistence" version="1.0">
+    <persistence-unit name="hibernate">
+        <provider>org.hibernate.ejb.HibernatePersistence</provider>
+        
+        <class>info.dolezel.jarss.data.Feed</class>
+        <class>info.dolezel.jarss.data.FeedCategory</class>
+        <class>info.dolezel.jarss.data.FeedData</class>
+        <class>info.dolezel.jarss.data.FeedItem</class>
+        <class>info.dolezel.jarss.data.FeedItemData</class>
+        <class>info.dolezel.jarss.data.FeedItemEnclosure</class>
+        <class>info.dolezel.jarss.data.Tag</class>
+        <class>info.dolezel.jarss.data.Token</class>
+        <class>info.dolezel.jarss.data.User</class>
+        
+        <properties>    
+        </properties>
+    </persistence-unit>
+</persistence>

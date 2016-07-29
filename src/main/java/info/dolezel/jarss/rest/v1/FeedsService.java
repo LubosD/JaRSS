@@ -113,7 +113,7 @@ public class FeedsService {
 		else
 			readAllBefore = new Date(0);
 		
-		Long count = (Long) session.createQuery("select count(*) from FeedItemData fid left outer join fid.feedItems as fi where fid.feedData = :fd and fi is null or (fi.feed = :feed and fi.read = true) and fid.date > :readAllBefore")
+		Long count = (Long) session.createQuery("select count(*) from FeedItemData fid left outer join fid.feedItems as fi where fid.feedData = :fd and (fi is null or (fi.feed = :feed and fi.read = false)) and fid.date > :readAllBefore")
 				.setEntity("fd", feed.getData())
 				.setEntity("feed", feed)
 				.setDate("readAllBefore", readAllBefore).uniqueResult();
@@ -122,6 +122,14 @@ public class FeedsService {
 		objFeed.add("title", feed.getName());
 		objFeed.add("unread", count);
 		objFeed.add("isCategory", false);
+		
+		Date lastFetch = feed.getData().getLastFetch();
+		if (lastFetch != null)
+			objFeed.add("lastFetchTime", lastFetch.getTime());
+		
+		String lastError = feed.getData().getLastError();
+		if (lastError != null)
+			objFeed.add("lastError", lastError);
 		
 		return objFeed;
 	}
@@ -191,6 +199,7 @@ public class FeedsService {
 			try {
 				loadFeedDetails(feedData);
 			} catch (Exception e) {
+				e.printStackTrace();
 				tx.rollback();
 				return Response.status(Response.Status.BAD_GATEWAY).entity(new ErrorDescription("Cannot fetch the feed")).build();
 			}
@@ -360,7 +369,7 @@ public class FeedsService {
 	private void loadFeedDetails(FeedData feedData) throws Exception {
 		URL url = new URL(feedData.getUrl());
 		SyndFeedInput input = new SyndFeedInput();
-		SyndFeed feed = input.build(new XmlReader(url));
+		SyndFeed feed = input.build(new XmlReader(url)); // TODO: handle redirects !
 		String iconUrl;
 
 		feedData.setTitle(feed.getTitle());
@@ -415,6 +424,33 @@ public class FeedsService {
 				.setEntity("feed", feed)
 				.setDate("date", newDate)
 				.executeUpdate();
+		
+		tx.commit();
+		
+		return Response.noContent().build();
+	}
+	
+	@POST
+	@Path("{id}/forceFetch")
+	public Response forceFetch(@Context SecurityContext context, @PathParam("id") int feedId) {
+		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
+		Transaction tx = session.beginTransaction();
+		User user;
+		Feed feed;
+		
+		user = (User) context.getUserPrincipal();
+		
+		feed = session.get(Feed.class, feedId);
+		if (feed == null) {
+			tx.rollback();
+			return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+		}
+		if (!feed.getUser().equals(user)) {
+			tx.rollback();
+			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+		}
+		
+		FeedsEngine.getInstance().submitFeedRefresh(feed.getData());
 		
 		tx.commit();
 		

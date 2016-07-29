@@ -20,7 +20,7 @@ import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
 @Entity
-@Table(indexes = { @Index(columnList = "date") })
+@Table(indexes = { @Index(columnList = "date"), @Index(columnList = "feedData_id,guid") })
 public  class FeedItemData implements Serializable {
 
 

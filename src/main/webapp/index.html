@@ -54,17 +54,15 @@
             
             <nav class="navbar navbar-default navbar-static-top">
                 <div class="container-fluid">
-                    <div class="navbar-header">
                         <img src="data/jarss/img/jarss-small.png" alt="JaRSS" id="small-logo" />
                         
                         <a id="feed-title" ng-if="selectedNode != null && !selectedNode.isCategory" ng-href="{{selectedNodeDetails.website}}">{{selectedNodeDetails.title}}</a>
-                        <div ng-if="selectedNode != null && !selectedNode.isCategory" id="feed-description">{{selectedNodeDetails.description}}</div>
+                        <div ng-show="selectedNode != null && !selectedNode.isCategory" id="feed-description">{{selectedNodeDetails.description}}</div>
+                        <span id="feed-title" ng-if="selectedNode != null && selectedNode.isCategory">{{selectedNode.title}}</span>
 
-                    </div>
-                    <div id="navbar" class="navbar-collapse collapse">
-                        <ul class="nav navbar-nav navbar-right">
+                        <ul class="nav navbar-nav navbar-right flexbar-right">
                             <li ng-show="selectedNode != null">
-                                <a href="#">Mark all as read</a>
+                                <a href="#" ng-click="markAllAsRead()">Mark all as read</a>
                             </li>
                             <li uib-dropdown>
                                 <a href="#" uib-dropdown-toggle>Actions <b class="caret"></b></a>
@@ -75,7 +73,6 @@
                                 </ul>
                             </li>
                         </ul>
-                    </div>
                 </div>
             </nav>
             
@@ -88,8 +85,9 @@
           'glyphicon-chevron-down': !collapsed
         }"></span></a>
      <img class="feed-image" width="16" height="16" alt="" src="api/v1/feeds/{{node.id}}/icon?token={{token}}" ng-if="!node.isCategory" />
-    <span ng-class="{'has-unread': node.unread > 0}">{{node.title}}</span>
-    <span ng-if="node.unread > 0" class="badge">{{node.unread}}</span>
+     <img class="feed-image" width="16" height="16" alt="" src="data/jarss/img/folder.png" ng-if="node.isCategory" />
+    <div ng-class="{'has-unread': node.unread > 0}" class="feed-title">{{node.title}}</div>
+    <div ng-if="node.unread > 0" class="badge">{{node.unread}}</div>
   </div>
   <ol ui-tree-nodes="" ng-model="node.nodes" ng-class="{hidden: collapsed}">
     <li ng-repeat="node in node.nodes" ui-tree-node ng-include="'nodes_renderer.html'">
@@ -99,7 +97,7 @@
             
             <div id="panes" class="split">
                 <div id="feeds-pane" class="split split-horizontal">
-                    <div ui-tree id="tree-root" data-drag-delay="1000">
+                    <div ui-tree="treeOptions" id="tree-root" data-drag-delay="1000">
                         <ol ui-tree-nodes ng-model="data">
                             <li ng-repeat="node in data" ui-tree-node ng-include="'nodes_renderer.html'"></li>
                         </ol>
@@ -109,7 +107,7 @@
                     
                     <div id="articles-pane" class="split">
                         
-                        <div class="headline" ng-repeat="headline in headlines" ng-class="{'unread': !headline.read}">
+                        <div class="headline" ng-repeat="headline in headlines" ng-if="!headlines.loading" ng-class="{'unread': !headline.read}">
                             <div class="headline-content" ng-click="showArticle($event, headline)">
                                 <img src="data/jarss/img/star.png" class="star-toggle" ng-class="{'starred': headline.starred}" ng-click="toggleStar($event, headline)" alt="" />
                                 <a ng-href="{{headline.link}}" class="headline-title">{{headline.title}}</a>
@@ -131,6 +129,7 @@
                             </div>
                         </div>
                             <div ng-if="!headlines" class="headline-none">No articles to see!</div>
+                            <div class="headlines-loading" ng-show="headlines.loading"><img src="data/jarss/img/rss-loader.gif" alt="Loading..." /></div>
                         
                     </div>
                     <!--<div id="preview-pane" class="split">Preview pane</div>-->

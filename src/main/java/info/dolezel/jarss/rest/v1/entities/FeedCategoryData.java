@@ -9,7 +9,7 @@ package info.dolezel.jarss.rest.v1.entities;
  *
  * @author lubos
  */
-public class FeedCategory {
+public class FeedCategoryData {
 	private int id;
 	private String name;
 
