@@ -8,7 +8,6 @@ package info.dolezel.jarss.rest.ttrss;
 import info.dolezel.jarss.HibernateUtil;
 import info.dolezel.jarss.data.Token;
 import info.dolezel.jarss.data.User;
-import info.dolezel.jarss.rest.v1.UserService;
 import info.dolezel.jarss.util.StringUtils;
 import java.io.IOException;
 import java.util.Calendar;
@@ -16,7 +15,9 @@ import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonReaderFactory;
-import javax.ws.rs.Consumes;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityTransaction;
+import javax.persistence.Query;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -24,9 +25,6 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.glassfish.jersey.server.ContainerRequest;
-import org.hibernate.Query;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
 
 /**
  * Based on https://tt-rss.org/gitlab/fox/tt-rss/wikis/ApiReference and testing.
@@ -42,7 +40,7 @@ public class TTRSSService {
 
 	private Token token;
 	private User user;
-	private Session session;
+	private EntityManager em;
 
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
@@ -51,7 +49,7 @@ public class TTRSSService {
 		JsonObject json, response = null;
 		int seq = 0;
 		int status = 0;
-		Transaction tx = null;
+		EntityTransaction tx = null;
 
 		jsonReader = factory.createReader(request.getEntityStream());
 		json = jsonReader.readObject();
@@ -59,8 +57,10 @@ public class TTRSSService {
 		try {
 			String op, sid;
 
-			session = HibernateUtil.getSessionFactory().getCurrentSession();
-			tx = session.beginTransaction();
+			em = HibernateUtil.getEntityManager();
+			tx = em.getTransaction();
+			
+			tx.begin();
 
 			seq = json.getInt("seq");
 			op = json.getString("op");
@@ -75,7 +75,7 @@ public class TTRSSService {
 			} else {
 
 				if (sid != null) {
-					token = Token.loadToken(session, sid);
+					token = Token.loadToken(em, sid);
 				}
 				if (token == null) {
 					throw new Exception("NOT_LOGGED_IN");
@@ -140,6 +140,9 @@ public class TTRSSService {
 			response = Json.createObjectBuilder().add("error", e.getMessage()).build();
 			status = 1;
 		}
+		
+		if (em != null)
+			em.close();
 
 		JsonObject msg = Json.createObjectBuilder().add("seq", seq).add("status", status)
 				.add("content", response).build();
@@ -152,11 +155,11 @@ public class TTRSSService {
 		login = json.getString("user");
 		password = json.getString("password");
 
-		Query query = session.getNamedQuery("User.getByLogin");
+		Query query = em.createNamedQuery("User.getByLogin", User.class);
 		String hash;
 
-		query.setString("login", login);
-		user = (User) query.uniqueResult();
+		query.setParameter("login", login);
+		user = (User) query.getSingleResult();
 
 		if (user == null) {
 			throw new Exception("LOGIN_ERROR");
@@ -176,7 +179,7 @@ public class TTRSSService {
 		token.setUser(user);
 		token.setValue(StringUtils.randomString(8));
 
-		session.save(token);
+		em.persist(token);
 
 		return Json.createObjectBuilder()
 				.add("session_id", token.getValue())
@@ -184,7 +187,7 @@ public class TTRSSService {
 	}
 
 	private JsonObject logout() {
-		session.delete(token);
+		em.remove(token);
 		return Json.createObjectBuilder().add("status", "OK").build();
 	}
 

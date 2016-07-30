@@ -16,25 +16,27 @@
  */
 package info.dolezel.jarss.data;
 
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Date;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityManager;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.ManyToOne;
+import javax.persistence.NoResultException;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 import javax.persistence.Transient;
-import org.hibernate.Session;
 
 /**
  *
  * @author lubos
  */
 @Entity
-public class Token {
+public class Token implements Serializable {
 	public static final int TOKEN_VALIDITY = 10*60; // 10 minutes
 	
 	@Id
@@ -83,13 +85,17 @@ public class Token {
 	}
 	
 	@Transient
-	public static Token loadToken(Session session, String value) {
+	public static Token loadToken(EntityManager em, String value) {
 		Token token;
 		Calendar cal = Calendar.getInstance();
-		token = (Token) session.createQuery("from Token where value = :value").setString("value", value).uniqueResult();
+		
+		try {
+			token = (Token) em.createQuery("select t from Token t where value = :value", Token.class)
+				.setParameter("value", value).getSingleResult();
+		} catch (NoResultException e) {
+			return null;
+		}
 			
-		if (token == null)
-			return null; // Invalid token
 		if (token.getExpiry().before(cal.getTime()))
 			return null; // Token expired, will be reaped later
 
@@ -97,7 +103,7 @@ public class Token {
 		token.setExpiry(cal.getTime());
 
 		// Refresh token expiry
-		session.update(token);
+		em.persist(token);
 		return token;
 	}
 }

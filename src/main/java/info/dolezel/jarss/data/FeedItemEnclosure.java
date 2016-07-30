@@ -16,6 +16,7 @@
  */
 package info.dolezel.jarss.data;
 
+import java.io.Serializable;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
@@ -27,7 +28,7 @@ import javax.persistence.ManyToOne;
  * @author lubos
  */
 @Entity
-public class FeedItemEnclosure {
+public class FeedItemEnclosure implements Serializable {
 	@Id
     @GeneratedValue(strategy=GenerationType.AUTO)
     private int id;

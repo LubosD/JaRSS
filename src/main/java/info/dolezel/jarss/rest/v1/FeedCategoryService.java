@@ -130,9 +130,11 @@ public class FeedCategoryService {
 		if (feedId > 0) {
 			fc = em.find(FeedCategory.class, feedId);
 			if (fc == null) {
+				em.close();
 				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed category does not exist")).build();
 			}
 			if (!fc.getUser().equals(user)) {
+				em.close();
 				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
 			}
 			
@@ -173,6 +175,7 @@ public class FeedCategoryService {
 				case -4: // all
 					break; // nothing to do
 				default:
+					em.close();
 					return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed category does not exist")).build();
 			}
 			
@@ -234,6 +237,7 @@ public class FeedCategoryService {
 			result[i] = data;
 		}
 		
+		em.close();
 		return Response.ok(result).build();
 	}
 	

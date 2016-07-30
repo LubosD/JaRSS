@@ -21,15 +21,18 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityTransaction;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
 
 /**
  *
@@ -69,65 +72,82 @@ public class FeedsEngine implements ServletContextListener {
 	}
 	
 	private void cleanupTokens() {
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction tx;
+		
+		tx = em.getTransaction();
+		
 		try {
-			Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-			Transaction tx = session.beginTransaction();
+			tx.begin();
 			
-			session.createQuery("delete from Token where expiry < current_date").executeUpdate();
+			em.createQuery("delete from Token where expiry < current_date").executeUpdate();
 
 			tx.commit();
 			
 			Logger.getLogger(RestApplication.class.getName()).log(Level.FINE, "Deleted expired tokens");
 			
 		} catch (Exception e) {
+			tx.rollback();
+			
 			Logger.getLogger(RestApplication.class.getName()).log(Level.SEVERE, "Error cleaning up tokens", e);
+		} finally {
+			em.close();
 		}
 	}
 	
 	private void refreshFeeds() {
+		EntityManager em = HibernateUtil.getEntityManager();
+		EntityTransaction tx;
+		
+		tx = em.getTransaction();
+		
 		try {
-			Session session;
-			Transaction tx;
 			List<FeedData> fd;
 			
-			session = HibernateUtil.getSessionFactory().openSession();
+			tx.begin();
 			
-			tx = session.beginTransaction();
-			fd = session.createQuery("from FeedData").list();
+			fd = em.createQuery("select fd from FeedData fd", FeedData.class).getResultList();
 			tx.commit();
 			
 			for (FeedData f : fd) {
-				tx = session.beginTransaction();
-				refreshFeed(session, f);
+				tx.begin();
+				refreshFeed(em, f);
 				tx.commit();
 			}
 		} catch (Exception e) {
+			if (tx.isActive())
+				tx.rollback();
 			Logger.getLogger(RestApplication.class.getName()).log(Level.SEVERE, "Error refreshing feeds", e);
+		} finally {
+			em.close();
 		}
 	}
 	
 	public void submitFeedRefresh(final FeedData fd) {
 		executor.schedule(() -> {
-			Transaction tx = null;
+			EntityManager em = HibernateUtil.getEntityManager();
+			EntityTransaction tx;
+			
+			tx = em.getTransaction();
 			
 			try {
-				Session session = HibernateUtil.getSessionFactory().getCurrentSession();
+				tx.begin();
 				
-				tx = session.beginTransaction();
-				
-				refreshFeed(session, fd);
+				refreshFeed(em, fd);
 				
 				tx.commit();
 			} catch (Exception e) {
-				if (tx != null)
+				if (tx.isActive())
 					tx.rollback();
 				
 				Logger.getLogger(RestApplication.class.getName()).log(Level.SEVERE, "Error refreshing feed " + fd.getId(), e);
+			} finally {
+				em.close();
 			}
 		}, 0, TimeUnit.SECONDS);
 	}
 	
-	private void refreshFeed(Session sess, FeedData fd) {
+	private void refreshFeed(EntityManager em, FeedData fd) {
 		try {
             SyndFeedInput input = new SyndFeedInput();
             SyndFeed feed = input.build(new XmlReader(new URL(fd.getUrl()))); // TODO: handle redirects!
@@ -135,6 +155,17 @@ public class FeedsEngine implements ServletContextListener {
 			updateFeedDetails(fd, feed);
             
             List<SyndEntryImpl> entries = feed.getEntries();
+			List<String> guids;
+			Map<String, FeedItemData> existing;
+			
+			// Get a list of entry GUIDs
+			guids = entries.stream().map((SyndEntryImpl e) -> { return e.getUri(); }).collect(Collectors.toList());
+			
+			// Select existing and place them into a map
+			existing = em.createQuery("select fid from FeedItemData fid where fid.feedData.id = :fd and fid.guid in (:guids)", FeedItemData.class)
+					.setParameter("guids", guids)
+					.setParameter("fd", fd.getId())
+					.getResultList().stream().collect(Collectors.toMap(FeedItemData::getGuid, Function.identity()));
             
             for (SyndEntryImpl entry : entries) {
                 FeedItemData data;
@@ -142,13 +173,13 @@ public class FeedsEngine implements ServletContextListener {
                 String guid = entry.getUri();
                 String link = entry.getLink();
 				List<SyndEnclosure> enclosures = entry.getEnclosures();
+				
+				data = existing.get(guid);
                 
-                data = (FeedItemData) sess.createQuery("from FeedItemData where feedData.id = :fd and guid = :guid")
-						.setInteger("fd", fd.getId()).setString("guid", guid).uniqueResult();
-                
-                // Entirely new entry
                 if (data == null) {
-                    data = new FeedItemData();
+                    // Entirely new entry
+					
+					data = new FeedItemData();
                     data.setFeedData(fd);
                     data.setGuid(guid);
                     data.setLink(link);
@@ -157,7 +188,7 @@ public class FeedsEngine implements ServletContextListener {
                     data.setDate(new java.sql.Timestamp(entry.getPublishedDate().getTime()));
                     data.setAuthor(entry.getAuthor());
 					
-					sess.save(data);
+					em.persist(data);
 					
 					for (SyndEnclosure e : enclosures) {
 						FeedItemEnclosure fe = new FeedItemEnclosure();
@@ -166,7 +197,7 @@ public class FeedsEngine implements ServletContextListener {
 						fe.setLength(e.getLength());
 						fe.setFeedItem(data);
 						
-						sess.save(fe);
+						em.persist(fe);
 					}
                     
                 } else { // Update existing entry if changed
@@ -179,7 +210,7 @@ public class FeedsEngine implements ServletContextListener {
                     if (!data.getTitle().equals(entry.getTitle()))
                         data.setTitle(entry.getTitle());
 					
-					sess.saveOrUpdate(data);
+					em.persist(data);
                 }    
                 
             }
@@ -187,10 +218,10 @@ public class FeedsEngine implements ServletContextListener {
 			fd.setLastFetch(new Date());
 			fd.setLastError(null);
 			
-			sess.update(fd);
+			em.persist(fd);
         } catch (IOException | FeedException e) {
 			fd.setLastError(e.getMessage());
-			sess.update(fd);
+			em.persist(fd);
 			
 			Logger.getLogger(RestApplication.class.getName()).log(Level.SEVERE, "Error retrieving feed from " + fd.getUrl(), e);
         }

@@ -29,6 +29,8 @@ import java.util.logging.Logger;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityTransaction;
 import org.apache.commons.collections4.MultiValuedMap;
 import org.apache.commons.collections4.multimap.HashSetValuedHashMap;
 import org.eclipse.jetty.websocket.api.Session;
@@ -37,7 +39,6 @@ import org.eclipse.jetty.websocket.api.annotations.OnWebSocketConnect;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketError;
 import org.eclipse.jetty.websocket.api.annotations.OnWebSocketMessage;
 import org.eclipse.jetty.websocket.api.annotations.WebSocket;
-import org.hibernate.Transaction;
 
 /**
  *
@@ -77,18 +78,22 @@ public class UnreadNotificationEndpoint {
 	
 	@OnWebSocketMessage
 	public void onMessage(Session session, String text) {
-		Transaction tx = null;
+		EntityManager em = null;
+		EntityTransaction tx = null;
 		try {
-			org.hibernate.Session hsession = HibernateUtil.getSessionFactory().getCurrentSession();
 			JsonReader reader;
 			JsonObject object;
 			Token token;
 			
-			tx = hsession.beginTransaction();
+			em = HibernateUtil.getEntityManager();
+			tx = em.getTransaction();
+			
+			tx.begin();
+			
 			reader = Json.createReader(new StringReader(text));
 			object = reader.readObject();
 			
-			token = Token.loadToken(hsession, object.getString("token"));
+			token = Token.loadToken(em, object.getString("token"));
 			if (token == null) {
 				tx.rollback();
 				
@@ -110,6 +115,9 @@ public class UnreadNotificationEndpoint {
 				tx.rollback();
 			
 			Logger.getLogger(UnreadNotificationEndpoint.class.getName()).log(Level.SEVERE, "Error processing incoming WebSocket message", ex);
+		} finally {
+			if (em != null)
+				em.close();
 		}
 	}
 	

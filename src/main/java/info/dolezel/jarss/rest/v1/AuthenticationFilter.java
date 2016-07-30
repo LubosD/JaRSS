@@ -21,14 +21,14 @@ import info.dolezel.jarss.data.Token;
 import info.dolezel.jarss.data.User;
 import java.io.IOException;
 import java.security.Principal;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityTransaction;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.PreMatching;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.Provider;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
 
 /**
  *
@@ -47,16 +47,25 @@ public class AuthenticationFilter implements ContainerRequestFilter {
 		String[] parts = auth.split(" ", 2);
 		
 		if (parts.length == 2 && "Bearer".equals(parts[0])) {
-			Session sess = HibernateUtil.getSessionFactory().getCurrentSession();
-			Transaction tx = sess.beginTransaction();
+			EntityManager em = HibernateUtil.getEntityManager();
+			EntityTransaction tx = em.getTransaction();
 			Token token;
 			
-			token = Token.loadToken(sess, parts[1]);
+			tx.begin();
 			
-			if (token == null)
-				return; // Invalid token
+			try {
 			
-			tx.commit();
+				token = Token.loadToken(em, parts[1]);
+
+				if (token == null)
+					return; // Invalid token
+
+				tx.commit();
+			} finally {
+				if (tx.isActive())
+					tx.rollback();
+				em.close();
+			}
 			
 			setUser(requestContext, token.getUser());
 		}

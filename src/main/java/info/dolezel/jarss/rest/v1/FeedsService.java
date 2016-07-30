@@ -47,6 +47,10 @@ import javax.json.Json;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityTransaction;
+import javax.persistence.NoResultException;
+import javax.persistence.Query;
 import javax.servlet.ServletContext;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -62,9 +66,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
 import org.apache.commons.io.IOUtils;
-import org.hibernate.Query;
-import org.hibernate.Session;
-import org.hibernate.Transaction;
 
 /**
  *
@@ -73,38 +74,42 @@ import org.hibernate.Transaction;
 @RolesAllowed("user")
 @Path("feeds")
 public class FeedsService {
+	
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("tree")
 	public Response getFeedsTree(@Context SecurityContext securityContext) {
-		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-		Transaction tx = session.beginTransaction();
+		EntityManager em;
 		User user = (User) securityContext.getUserPrincipal();
 		JsonArrayBuilder jsonBuilder;
 		List<FeedCategory> fcs;
 		List<Feed> rootFeeds;
 		
+		em = HibernateUtil.getEntityManager();
+		
 		jsonBuilder = Json.createArrayBuilder();
 		
-		fcs = session.createQuery("from FeedCategory where user = :user order by name asc").setEntity("user", user).list();
-		
-		for (FeedCategory fc : fcs) {
-			JsonObjectBuilder obj = getFeedCategory(session, fc);
-			jsonBuilder.add(obj);
+		try {
+			fcs = em.createQuery("select fc from FeedCategory fc where fc.user = :user order by fc.name asc").setParameter("user", user).getResultList();
+
+			for (FeedCategory fc : fcs) {
+				JsonObjectBuilder obj = getFeedCategory(em, fc);
+				jsonBuilder.add(obj);
+			}
+
+			rootFeeds = em.createQuery("select f from Feed f where f.user = :user and f.feedCategory is null order by f.name asc").setParameter("user", user).getResultList();
+			for (Feed feed : rootFeeds) {
+				JsonObjectBuilder obj = getFeed(em, feed);
+				jsonBuilder.add(obj);
+			}
+
+			return Response.ok(jsonBuilder.build().toString()).build();
+		} finally {
+			em.close();
 		}
-		
-		rootFeeds = session.createQuery("from Feed where user = :user and feedCategory is null order by name asc").setEntity("user", user).list();
-		for (Feed feed : rootFeeds) {
-			JsonObjectBuilder obj = getFeed(session, feed);
-			jsonBuilder.add(obj);
-		}
-		
-		tx.commit();
-		
-		return Response.ok(jsonBuilder.build().toString()).build();
 	}
 	
-	private JsonObjectBuilder getFeed(Session session, Feed feed) {
+	private JsonObjectBuilder getFeed(EntityManager em, Feed feed) {
 		JsonObjectBuilder objFeed = Json.createObjectBuilder();
 		Date readAllBefore;
 
@@ -113,10 +118,10 @@ public class FeedsService {
 		else
 			readAllBefore = new Date(0);
 		
-		Long count = (Long) session.createQuery("select count(*) from FeedItemData fid left outer join fid.feedItems as fi where fid.feedData = :fd and (fi is null or (fi.feed = :feed and fi.read = false)) and fid.date > :readAllBefore")
-				.setEntity("fd", feed.getData())
-				.setEntity("feed", feed)
-				.setDate("readAllBefore", readAllBefore).uniqueResult();
+		long count = (Long) em.createQuery("select count(*) from FeedItemData fid left outer join fid.feedItems as fi where fid.feedData = :fd and (fi is null or (fi.feed = :feed and fi.read = false)) and fid.date > :readAllBefore", Long.class)
+				.setParameter("fd", feed.getData())
+				.setParameter("feed", feed)
+				.setParameter("readAllBefore", readAllBefore).getSingleResult();
 
 		objFeed.add("id", feed.getId());
 		objFeed.add("title", feed.getName());
@@ -134,7 +139,7 @@ public class FeedsService {
 		return objFeed;
 	}
 	
-	private JsonObjectBuilder getFeedCategory(Session session, FeedCategory fc) {
+	private JsonObjectBuilder getFeedCategory(EntityManager em, FeedCategory fc) {
 		JsonObjectBuilder obj = Json.createObjectBuilder();
 		int fcUnread = 0;
 		Collection<Feed> feeds;
@@ -145,7 +150,7 @@ public class FeedsService {
 
 		feeds = fc.getFeeds();
 		for (Feed feed : feeds) {
-			JsonObject objFeed = getFeed(session, feed).build();
+			JsonObject objFeed = getFeed(em, feed).build();
 
 			fcUnread = objFeed.getInt("unread");
 
@@ -163,8 +168,8 @@ public class FeedsService {
 	@Consumes(MediaType.APPLICATION_JSON)
 	public Response subscribeFeed(@Context SecurityContext context, FeedSubscriptionData data) {
 		FeedCategory fc = null;
-		Session session;
-		Transaction tx;
+		EntityManager em;
+		EntityTransaction tx;
 		User user;
 		FeedData feedData;
 		Feed f;
@@ -175,83 +180,101 @@ public class FeedsService {
 		}
 		
 		user = (User) context.getUserPrincipal();
-		session = HibernateUtil.getSessionFactory().getCurrentSession();
-		tx = session.beginTransaction();
+		em = HibernateUtil.getEntityManager();
+		tx = em.getTransaction();
+		tx.begin();
 		
-		if (data.getCategoryId() != 0) {
-			fc = (FeedCategory) session.createQuery("from FeedCategory where id = :id").setInteger("id", data.getCategoryId()).uniqueResult();
-			
-			if (fc == null) {
-				tx.rollback();
-				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed category not found")).build();
-			} else if (!fc.getUser().equals(user)) {
-				tx.rollback();
-				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed category not owned by user")).build();
+		try {
+			if (data.getCategoryId() != 0) {
+				try {
+					fc = (FeedCategory) em.createQuery("select fc from FeedCategory fc where fc.id = :id", FeedCategory.class).setParameter("id", data.getCategoryId()).getSingleResult();
+				} catch (NoResultException e) {
+					return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed category not found")).build();
+				}
+
+				if (!fc.getUser().equals(user)) {
+					return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed category not owned by user")).build();
+				}
 			}
-		}
-		
-		// Try to look up existing FeedData
-		feedData = (FeedData) session.getNamedQuery("FeedData.getByUrl").setString("url", data.getUrl()).uniqueResult();
-		if (feedData == null) {
-			feedData = new FeedData();
-			feedData.setUrl(data.getUrl());
-			
+
+			// Try to look up existing FeedData
 			try {
-				loadFeedDetails(feedData);
-			} catch (Exception e) {
-				e.printStackTrace();
-				tx.rollback();
-				return Response.status(Response.Status.BAD_GATEWAY).entity(new ErrorDescription("Cannot fetch the feed")).build();
+				feedData = (FeedData) em.createNamedQuery("FeedData.getByUrl").setParameter("url", data.getUrl()).getSingleResult();
+			} catch (NoResultException e) {
+				feedData = new FeedData();
+				feedData.setUrl(data.getUrl());
+
+				try {
+					loadFeedDetails(feedData);
+				} catch (Exception ex) {
+					e.printStackTrace();
+					return Response.status(Response.Status.BAD_GATEWAY).entity(new ErrorDescription("Cannot fetch the feed")).build();
+				}
+
+				em.persist(feedData);
+				createdNewFD = true;
 			}
-			
-			session.save(feedData);
-			createdNewFD = true;
+
+			f = new Feed();
+			f.setUser(user);
+			f.setFeedCategory(fc);
+			f.setData(feedData);
+			f.setName(feedData.getTitle());
+
+			em.persist(f);
+
+			tx.commit();
+
+			if (createdNewFD)
+				FeedsEngine.getInstance().submitFeedRefresh(feedData);
+
+			return Response.noContent().build();
+		} finally {
+			if (tx.isActive())
+				tx.rollback();
+			em.close();
 		}
-		
-		f = new Feed();
-		f.setUser(user);
-		f.setFeedCategory(fc);
-		f.setData(feedData);
-		f.setName(feedData.getTitle());
-		
-		session.save(f);
-		
-		tx.commit();
-		
-		if (createdNewFD)
-			FeedsEngine.getInstance().submitFeedRefresh(feedData);
-		
-		return Response.noContent().build();
 	}
 	
 	@DELETE
 	@Path("{id}")
 	public Response unsubscribeFeed(@Context SecurityContext context, @PathParam("id") int feedId) {
-		Session session;
-		Transaction tx;
+		EntityManager em;
+		EntityTransaction tx;
 		User user;
 		Feed f;
 		FeedData fd;
 		
-		session = HibernateUtil.getSessionFactory().getCurrentSession();
-		tx = session.beginTransaction();
+		em = HibernateUtil.getEntityManager();
+		tx = em.getTransaction();
 		user = (User) context.getUserPrincipal();
 		
-		f = (Feed) session.createQuery("from Feed where id = :id").setInteger("id", feedId).uniqueResult();
-		if (!f.getUser().equals(user)) {
-			tx.rollback();
-			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+		try {
+			tx.begin();
+
+			try {
+				f = (Feed) em.createQuery("from Feed where id = :id", Feed.class).setParameter("id", feedId).getSingleResult();
+			} catch (NoResultException e) {
+				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+			}
+			if (!f.getUser().equals(user)) {
+				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+			}
+
+			fd = f.getData();
+			em.remove(f);
+
+			if (fd.getFeeds().isEmpty())
+				em.remove(fd);
+
+			tx.commit();
+
+			return Response.noContent().build();
+		} finally {
+			if (tx.isActive())
+				tx.rollback();
+			em.close();
 		}
-		
-		fd = f.getData();
-		session.delete(f);
-		
-		if (fd.getFeeds().isEmpty())
-			session.delete(fd);
-		
-		tx.commit();
-		
-		return Response.noContent().build();
 	}
 	
 	@PUT
@@ -271,8 +294,7 @@ public class FeedsService {
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("{id}/headlines")
 	public Response getArticleHeadlines(@Context SecurityContext context, @PathParam("id") int feedId, @QueryParam("skip") int skip, @QueryParam("limit") int limit) {
-		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-		Transaction tx = session.beginTransaction();
+		EntityManager em;
 		List<Object[]> articles;
 		Query query;
 		ArticleHeadlineData[] result;
@@ -280,57 +302,60 @@ public class FeedsService {
 		User user;
 		
 		user = (User) context.getUserPrincipal();
+		em = HibernateUtil.getEntityManager();
 		
-		feed = session.get(Feed.class, feedId);
-		if (feed == null) {
-			tx.rollback();
-			return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
-		}
-		if (!feed.getUser().equals(user)) {
-			tx.rollback();
-			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
-		}
+		try {
 		
-		query = session.createQuery("SELECT fid, fi from FeedItemData fid LEFT OUTER JOIN fid.feedItems AS fi where fid.feedData = :fd and (fi is null or fi.feed = :feed) order by fid.date desc")
-				.setEntity("fd", feed.getData())
-				.setEntity("feed", feed)
-				.setFirstResult(skip);
-		
-		if (limit > 0)
-			query.setMaxResults(limit);
-		
-		articles = query.list();
-		
-		result = new ArticleHeadlineData[articles.size()];
-		for (int i = 0; i < articles.size(); i++) {
-			FeedItemData article = (FeedItemData) articles.get(i)[0];
-			FeedItem feedItem = (FeedItem) articles.get(i)[1];
-			
-			ArticleHeadlineData data = new ArticleHeadlineData();
-			String text;
-			
-			data.setPublished(article.getDate().getTime());
-			data.setTitle(article.getTitle());
-			data.setId(article.getId());
-			
-			text = StringUtils.html2text(article.getText());
-			
-			if (text.length() > 130)
-				text = text.substring(0, 130);
-			
-			data.setExcerpt(text);
-			data.setLink(article.getLink());
-			
-			if (feedItem != null) {
-				data.setRead(feedItem.isRead());
-				data.setStarred(feedItem.isStarred());
+			feed = em.find(Feed.class, feedId);
+			if (feed == null) {
+				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
 			}
-			
-			result[i] = data;
+			if (!feed.getUser().equals(user)) {
+				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+			}
+
+			query = em.createQuery("SELECT fid, fi from FeedItemData fid LEFT OUTER JOIN fid.feedItems AS fi where fid.feedData = :fd and (fi is null or fi.feed = :feed) order by fid.date desc", Object[].class)
+					.setParameter("fd", feed.getData())
+					.setParameter("feed", feed)
+					.setFirstResult(skip);
+
+			if (limit > 0)
+				query.setMaxResults(limit);
+
+			articles = query.getResultList();
+
+			result = new ArticleHeadlineData[articles.size()];
+			for (int i = 0; i < articles.size(); i++) {
+				FeedItemData article = (FeedItemData) articles.get(i)[0];
+				FeedItem feedItem = (FeedItem) articles.get(i)[1];
+
+				ArticleHeadlineData data = new ArticleHeadlineData();
+				String text;
+
+				data.setPublished(article.getDate().getTime());
+				data.setTitle(article.getTitle());
+				data.setId(article.getId());
+
+				text = StringUtils.html2text(article.getText());
+
+				if (text.length() > 130)
+					text = text.substring(0, 130);
+
+				data.setExcerpt(text);
+				data.setLink(article.getLink());
+
+				if (feedItem != null) {
+					data.setRead(feedItem.isRead());
+					data.setStarred(feedItem.isStarred());
+				}
+
+				result[i] = data;
+			}
+
+			return Response.ok(result).build();
+		} finally {
+			em.close();
 		}
-		
-		tx.commit();
-		return Response.ok(result).build();
 	}
 	
 	// Return details from the RSS feed itself
@@ -338,32 +363,35 @@ public class FeedsService {
 	@Produces(MediaType.APPLICATION_JSON)
 	@Path("{id}/details")
 	public Response getFeedDetails(@Context SecurityContext context, @PathParam("id") int feedId) {
-		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-		Transaction tx = session.beginTransaction();
+		EntityManager em;
 		User user;
 		Feed feed;
 		FeedData feedData;
 		FeedDetails details;
 		
-		user = (User) context.getUserPrincipal();
-		feed = session.get(Feed.class, feedId);
-		if (feed == null) {
-			tx.rollback();
-			return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
-		}
-		if (!feed.getUser().equals(user)) {
-			tx.rollback();
-			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
-		}
+		em = HibernateUtil.getEntityManager();
 		
-		feedData = feed.getData();
-		details = new FeedDetails();
-		details.setDescription(feedData.getDescription());
-		details.setWebsite(feedData.getWebsiteUrl());
-		details.setLastFetchError(feedData.getLastError());
-		details.setTitle(feedData.getTitle());
-		
-		return Response.ok(details).build();
+		try {
+			user = (User) context.getUserPrincipal();
+			feed = em.find(Feed.class, feedId);
+			if (feed == null) {
+				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+			}
+			if (!feed.getUser().equals(user)) {
+				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+			}
+
+			feedData = feed.getData();
+			details = new FeedDetails();
+			details.setDescription(feedData.getDescription());
+			details.setWebsite(feedData.getWebsiteUrl());
+			details.setLastFetchError(feedData.getLastError());
+			details.setTitle(feedData.getTitle());
+
+			return Response.ok(details).build();
+		} finally {
+			em.close();
+		}
 	}
 
 	private void loadFeedDetails(FeedData feedData) throws Exception {
@@ -396,65 +424,72 @@ public class FeedsService {
 	@POST
 	@Path("{id}/markAllRead")
 	public Response markAllRead(@Context SecurityContext context, @PathParam("id") int feedId, @QueryParam("allBefore") long timeMillis) {
-		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-		Transaction tx = session.beginTransaction();
+		EntityManager em;
+		EntityTransaction tx;
 		User user;
 		Feed feed;
 		Date newDate;
 		
 		user = (User) context.getUserPrincipal();
+		em = HibernateUtil.getEntityManager();
+		tx = em.getTransaction();
 		
-		feed = session.get(Feed.class, feedId);
-		if (feed == null) {
-			tx.rollback();
-			return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+		tx.begin();
+		
+		try {
+			feed = em.find(Feed.class, feedId);
+			if (feed == null) {
+				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+			}
+			if (!feed.getUser().equals(user)) {
+				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+			}
+
+			newDate = new Date(timeMillis);
+			if (feed.getReadAllBefore() == null || feed.getReadAllBefore().before(newDate)) {
+				feed.setReadAllBefore(newDate);
+				em.persist(feed);
+			}
+
+			em.createQuery("delete from FeedItem fi where fi.feed = :feed and fi.data.date < :date and not fi.starred and not fi.exported and size(fi.tags) = 0")
+					.setParameter("feed", feed)
+					.setParameter("date", newDate)
+					.executeUpdate();
+
+			tx.commit();
+
+			return Response.noContent().build();
+		} finally {
+			if (tx.isActive())
+				tx.rollback();
+			em.close();
 		}
-		if (!feed.getUser().equals(user)) {
-			tx.rollback();
-			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
-		}
-		
-		newDate = new Date(timeMillis);
-		if (feed.getReadAllBefore() == null || feed.getReadAllBefore().before(newDate)) {
-			feed.setReadAllBefore(newDate);
-			session.update(feed);
-		}
-		
-		session.createQuery("delete from FeedItem fi where fi.feed = :feed and fi.data.date < :date and not fi.starred and not fi.exported and size(fi.tags) = 0")
-				.setEntity("feed", feed)
-				.setDate("date", newDate)
-				.executeUpdate();
-		
-		tx.commit();
-		
-		return Response.noContent().build();
 	}
 	
 	@POST
 	@Path("{id}/forceFetch")
 	public Response forceFetch(@Context SecurityContext context, @PathParam("id") int feedId) {
-		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-		Transaction tx = session.beginTransaction();
+		EntityManager em = HibernateUtil.getEntityManager();
 		User user;
 		Feed feed;
 		
-		user = (User) context.getUserPrincipal();
-		
-		feed = session.get(Feed.class, feedId);
-		if (feed == null) {
-			tx.rollback();
-			return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+		try {
+			user = (User) context.getUserPrincipal();
+
+			feed = em.find(Feed.class, feedId);
+			if (feed == null) {
+				return Response.status(Response.Status.NOT_FOUND).entity(new ErrorDescription("Feed does not exist")).build();
+			}
+			if (!feed.getUser().equals(user)) {
+				return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
+			}
+
+			FeedsEngine.getInstance().submitFeedRefresh(feed.getData());
+
+			return Response.noContent().build();
+		} finally {
+			em.close();
 		}
-		if (!feed.getUser().equals(user)) {
-			tx.rollback();
-			return Response.status(Response.Status.FORBIDDEN).entity(new ErrorDescription("Feed not owned by user")).build();
-		}
-		
-		FeedsEngine.getInstance().submitFeedRefresh(feed.getData());
-		
-		tx.commit();
-		
-		return Response.noContent().build();
 	}
 	
 	private byte[] emptyImage;
@@ -464,31 +499,30 @@ public class FeedsService {
 	@Produces("image/png")
 	@PermitAll
 	public Response getFeedIcon(@Context ServletContext ctx, @PathParam("id") int feedId, @QueryParam("token") String tokenString) throws IOException {
-		Session session = HibernateUtil.getSessionFactory().getCurrentSession();
-		Transaction tx = session.beginTransaction();
+		EntityManager em = HibernateUtil.getEntityManager();
 		Token token;
 		Feed feed;
 		byte[] data;
 		
-		token = Token.loadToken(session, tokenString);
-		
-		feed = session.get(Feed.class, feedId);
-		if (feed == null) {
-			tx.rollback();
-			return Response.status(Response.Status.NOT_FOUND).entity(emptyGif(ctx)).build();
+		try {
+			token = Token.loadToken(em, tokenString);
+
+			feed = em.find(Feed.class, feedId);
+			if (feed == null) {
+				return Response.status(Response.Status.NOT_FOUND).entity(emptyGif(ctx)).build();
+			}
+			if (!feed.getUser().equals(token.getUser())) {
+				return Response.status(Response.Status.FORBIDDEN).entity(emptyGif(ctx)).build();
+			}
+
+			data = feed.getData().getIconData();
+			if (data == null)
+				data = emptyGif(ctx);
+
+			return Response.ok(data).build();
+		} finally {
+			em.close();
 		}
-		if (!feed.getUser().equals(token.getUser())) {
-			tx.rollback();
-			return Response.status(Response.Status.FORBIDDEN).entity(emptyGif(ctx)).build();
-		}
-		
-		data = feed.getData().getIconData();
-		if (data == null)
-			data = emptyGif(ctx);
-		
-		tx.commit();
-		
-		return Response.ok(data).build();
 	}
 
 	private byte[] emptyGif(ServletContext ctx) throws IOException {
